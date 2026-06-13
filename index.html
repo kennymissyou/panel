@@ -3879,6 +3879,78 @@
 </div>
 
 <script>
+// ===== 全局数据初始化 =====
+var quoteData = {};      // 实时行情数据 {code: {price, change, ...}}
+var goldenCrossCache = null; // 三线金叉数据缓存
+
+// ===== 动态加载数据文件 =====
+function loadExternalData() {
+    // 1. 加载realtime_data.js（行情+情绪+三灯+信号数据）
+    var script = document.createElement('script');
+    script.src = 'realtime_data.js?' + Date.now();
+    script.onload = function() {
+        console.log('✅ realtime_data.js 加载成功');
+        if (window.__REALTIME_DATA__) {
+            var data = window.__REALTIME_DATA__;
+            // 注入quoteData（各渲染函数依赖此变量）
+            if (data.stocks) {
+                data.stocks.forEach(function(s) {
+                    var code = s.code || '';
+                    if (code && !code.startsWith('sh') && !code.startsWith('sz')) {
+                        code = (code.startsWith('6') || code.startsWith('5') ? 'sh' : 'sz') + code;
+                    }
+                    quoteData[code] = s;
+                    if (s.realtime) {
+                        quoteData[code].price = s.realtime.price || s.price || 0;
+                        quoteData[code].change = s.realtime.change_pct || s.change_pct || 0;
+                        quoteData[code].changePct = s.realtime.change_pct || s.change_pct || 0;
+                        quoteData[code].preClose = s.realtime.prev_close || s.prev_close || 0;
+                        quoteData[code].open = s.realtime.open || s.open || 0;
+                        quoteData[code].high = s.realtime.high || s.high || 0;
+                        quoteData[code].low = s.realtime.low || s.low || 0;
+                        quoteData[code].volume = s.realtime.volume || 0;
+                        quoteData[code].amount = s.realtime.amount || 0;
+                    }
+                });
+            }
+            // 触发首次渲染
+            if (typeof renderAll === 'function') renderAll();
+            if (typeof renderChain === 'function') renderChain();
+            if (typeof updateEmotionStageDisplay === 'function') updateEmotionStageDisplay();
+        }
+    };
+    script.onerror = function() {
+        console.warn('⚠️ realtime_data.js 加载失败，使用内置静态数据');
+        // 降级：用内置的HOLDING_STOCKS+WATCH_STOCKS构造quoteData
+        var allStocks = (typeof HOLDING_STOCKS !== 'undefined' ? HOLDING_STOCKS : [])
+            .concat(typeof WATCH_STOCKS !== 'undefined' ? WATCH_STOCKS : []);
+        allStocks.forEach(function(s) {
+            quoteData[s.code] = { price: 0, change: 0, changePct: 0 };
+        });
+        if (typeof renderAll === 'function') renderAll();
+    };
+    document.head.appendChild(script);
+
+    // 2. 加载t0_strategy_data.js
+    var t0Script = document.createElement('script');
+    t0Script.src = 't0_strategy_data.js?' + Date.now();
+    t0Script.onload = function() { console.log('✅ t0_strategy_data.js 加载成功'); };
+    t0Script.onerror = function() { console.warn('⚠️ t0_strategy_data.js 加载失败'); };
+    document.head.appendChild(t0Script);
+
+    // 3. 加载stock_strategy.js
+    var ssScript = document.createElement('script');
+    ssScript.src = 'stock_strategy.js?' + Date.now();
+    ssScript.onload = function() { console.log('✅ stock_strategy.js 加载成功'); };
+    ssScript.onerror = function() { console.warn('⚠️ stock_strategy.js 加载失败'); };
+    document.head.appendChild(ssScript);
+
+    // 4. 加载三线金叉数据
+    if (typeof loadGoldenCrossData === 'function') {
+        loadGoldenCrossData();
+    }
+}
+
 // ===== 全局错误捕获与显示 =====
 window.onerror = function(msg, url, line, col, error) {
     console.error('全局错误:', msg, '行:', line, '列:', col);
@@ -7022,6 +7094,9 @@ function loadJSONP(url, callback, timeout = 5000) {
 
 // 启动时检测协议
 checkProtocol();
+
+// 加载外部数据文件并触发渲染
+loadExternalData();
 </script>
 
 <!--
