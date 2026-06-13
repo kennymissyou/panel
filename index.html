@@ -3595,6 +3595,22 @@
             <div class="loading-text">正在加载持仓数据...</div>
         </div>
         
+        <div class="section-title" style="margin-top: 16px;">
+            <span>🔭 观察池 · 核心标的</span>
+            <span class="section-count" id="core-count">--</span>
+        </div>
+        <div id="core-list" class="stock-grid">
+            <div class="loading-text">正在加载...</div>
+        </div>
+        
+        <div class="section-title" style="margin-top: 12px;">
+            <span>📋 观察池 · 跟踪标的</span>
+            <span class="section-count" id="track-count">--</span>
+        </div>
+        <div id="track-list" class="stock-grid">
+            <div class="loading-text">正在加载...</div>
+        </div>
+        
         <div class="update-time">
             <span class="refresh-dot"></span>
             <span id="update-time-1">--</span>
@@ -3958,6 +3974,9 @@ function loadExternalData() {
                 });
             }
             // 触发首次渲染
+            console.log('quoteData keys数量:', Object.keys(quoteData).length);
+            console.log('quoteData sample keys:', Object.keys(quoteData).slice(0, 5));
+            console.log('sh603019 in quoteData:', 'sh603019' in quoteData, quoteData['sh603019'] ? quoteData['sh603019'].price : 'N/A');
             if (typeof renderAll === 'function') renderAll();
             if (typeof renderChain === 'function') renderChain();
             if (typeof updateEmotionStageDisplay === 'function') updateEmotionStageDisplay();
