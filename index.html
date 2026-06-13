@@ -4135,7 +4135,7 @@ function renderChain() {
 // 渲染大盘三灯
 function renderTrafficLight() {
     // 从全局数据读取三灯信号
-    const stats = window.__REALTIME_DATA__?.stats || {};
+    const stats = (window.__REALTIME_DATA__ && window.__REALTIME_DATA__.stats) || {};
     const emotionStage = stats.emotion_stage || 'start';
     const emotionScore = stats.emotion_score || 50;
     
@@ -4235,7 +4235,7 @@ function updateHeaderTrafficLight() {
 // 渲染进攻方向
 function renderAttackDirection() {
     // 从CHAIN_DATA或全局数据读取进攻方向
-    const stats = window.__REALTIME_DATA__?.stats || {};
+    const stats = (window.__REALTIME_DATA__ && window.__REALTIME_DATA__.stats) || {};
     const attackDirections = stats.attack_directions || CHAIN_DATA.filter(c => c.isActive).map(c => c.name) || ['半导体/算力', '稀有金属/钨'];
     
     const container = document.getElementById('attack-direction-list');
@@ -4260,10 +4260,10 @@ function renderAttackDirection() {
 
 // 渲染弹药状态
 function renderAmmunition() {
-    const stats = window.__REALTIME_DATA__?.stats || {};
+    const stats = (window.__REALTIME_DATA__ && window.__REALTIME_DATA__.stats) || {};
     
     // 从stocks读取attack_type分类
-    const stocks = window.__REALTIME_DATA__?.stocks || [];
+    const stocks = (window.__REALTIME_DATA__ && window.__REALTIME_DATA__.stocks) || [];
     const ambushCount = stocks.filter(s => s.attack_type === 'ambush').length;
     const confirmCount = stocks.filter(s => s.attack_type === 'confirm').length;
     const readyCount = stocks.filter(s => s.attack_type === 'ready' || HOLDING_STOCKS.some(h => h.code === s.code)).length;
@@ -4291,7 +4291,7 @@ function renderAmmunition() {
 // 渲染买点确认
 function renderBuyPoint() {
     // 从三线金叉数据读取已出买入信号的个股
-    const buySignals = window.__GOLDEN_CROSS_DATA__?.filter(s => s.score >= 6) || [];
+    const buySignals = (window.__GOLDEN_CROSS_DATA__ && window.__GOLDEN_CROSS_DATA__.filter(function(s) { return s.score >= 6; })) || [];
     const holdingBuy = HOLDING_STOCKS.filter(s => {
         const quote = quoteData[s.code];
         return quote && quote.price > 0 && quote.price <= s.target;
@@ -4328,7 +4328,6 @@ function renderBuyPoint() {
 }
 
 // ========== 选股雷达渲染 ==========
-let goldenCrossCache = null;
 
 function renderRadar() {
     try {
@@ -4344,7 +4343,7 @@ function renderRadarStocks() {
     
     if (!stocks) {
         // 从全局数据读取
-        stocks = window.__GOLDEN_CROSS_DATA__ || window.__REALTIME_DATA__?.golden_cross || [];
+        stocks = window.__GOLDEN_CROSS_DATA__ || (window.__REALTIME_DATA__ && window.__REALTIME_DATA__.golden_cross) || [];
     }
     
     if (stocks.length === 0) {
@@ -5437,7 +5436,7 @@ function switchToSector(sectorName) {
     setTimeout(() => {
         const cards = document.querySelectorAll('.stock-card');
         cards.forEach(card => {
-            const name = card.querySelector('.stock-name')?.textContent || '';
+            const name = card.querySelector('.stock-name') ? document.querySelector('.stock-name').textContent : '';
             if (name.includes(sectorName) || card.innerHTML.includes(sectorName)) {
                 card.classList.add('linked-highlight');
                 setTimeout(() => card.classList.remove('linked-highlight'), 2000);
@@ -5862,7 +5861,7 @@ function calculateBandAnalysis(stock, quote, mood) {
     if (gapInfo.has_gap) {
         if (gapInfo.gap_type === 'up_gap' && gapInfo.gap_strength >= 1) {
             gapClass = 'good';
-            gapLabel = `向上缺口${gapInfo.gap_pct?.toFixed(1)}%`;
+            gapLabel = `向上缺口${gapInfo.gap_pct && gapInfo.gap_pct.toFixed(1)}%`;
         } else if (gapInfo.gap_type === 'down_gap' && gapInfo.gap_strength >= 1) {
             gapClass = 'bad';
             gapLabel = `向下缺口${Math.abs(gapInfo.gap_pct || 0).toFixed(1)}%`;
