@@ -3859,19 +3859,19 @@
     
     <!-- 底部Tab栏（手机端） -->
     <div class="tabs">
-        <div class="tab-item active" data-tab="chain">
+        <div class="tab-item active" data-tab="chain" onclick="switchTab('chain')">
             <div style="font-size: 18px;">⚡</div>
             <div style="font-size: 11px; margin-top: 2px;">决策</div>
         </div>
-        <div class="tab-item" data-tab="holding">
+        <div class="tab-item" data-tab="holding" onclick="switchTab('holding')">
             <div style="font-size: 18px;">📊</div>
             <div style="font-size: 11px; margin-top: 2px;">持仓</div>
         </div>
-        <div class="tab-item" data-tab="radar">
+        <div class="tab-item" data-tab="radar" onclick="switchTab('radar')">
             <div style="font-size: 18px;">🎯</div>
             <div style="font-size: 11px; margin-top: 2px;">雷达</div>
         </div>
-        <div class="tab-item" data-tab="market">
+        <div class="tab-item" data-tab="market" onclick="switchTab('market')">
             <div style="font-size: 18px;">🌐</div>
             <div style="font-size: 11px; margin-top: 2px;">大盘</div>
         </div>
@@ -3879,6 +3879,50 @@
 </div>
 
 <script>
+// ===== 缺失常量与函数补丁 =====
+var MOOD_STAGES = ['冰点', '恐慌', '试错', '启动', '加速', '高潮', '分歧', '退潮'];
+var EMOTION_STAGE_MAP = {'ice': 0, 'panic': 1, 'trial': 2, 'start': 3, 'accel': 4, 'climax': 5, 'diverge': 6, 'ebbing': 7};
+
+function calculateMood() {
+    var stats = (window.__REALTIME_DATA__ && window.__REALTIME_DATA__.stats) || {};
+    var stageStr = stats.emotion_stage || 'start';
+    var stage = EMOTION_STAGE_MAP[stageStr];
+    if (typeof stage === 'undefined') stage = 3; // 默认启动期
+    var score = stats.emotion_score || 50;
+    return {
+        stage: stage,
+        score: score,
+        stageName: MOOD_STAGES[stage],
+        color: stats.emotion_color || '#73d13d',
+        desc: stats.emotion_desc || '',
+        suggestedPosition: stats.suggested_position || 50,
+        trafficLight: stats.traffic_light || '🟡',
+        trafficReason: stats.traffic_reason || '',
+        trafficDetail: stats.traffic_detail || ''
+    };
+}
+
+function updateEmotionStageDisplay() {
+    var mood = calculateMood();
+    // 更新顶部情绪阶段显示
+    var phaseEl = document.getElementById('mood-phase-big');
+    if (phaseEl) { phaseEl.textContent = mood.stageName; phaseEl.style.color = mood.color; }
+}
+
+// 三线金叉数据加载
+function loadGoldenCrossData() {
+    fetch('三线金叉全市场结果.json?' + Date.now())
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            goldenCrossCache = data;
+            console.log('✅ 三线金叉数据加载成功');
+            if (typeof renderRadarStocks === 'function') renderRadarStocks();
+        })
+        .catch(function(e) {
+            console.warn('⚠️ 三线金叉数据加载失败:', e);
+        });
+}
+
 // ===== 全局数据初始化 =====
 var quoteData = {};      // 实时行情数据 {code: {price, change, ...}}
 var goldenCrossCache = null; // 三线金叉数据缓存
@@ -3992,9 +4036,21 @@ function switchTab(tabName) {
     document.querySelectorAll('.tab-content').forEach(c => {
         c.classList.toggle('active', c.id === 'tab-' + tabName);
     });
-    // 如果切换到传导链Tab，渲染数据
-    if (tabName === 'chain') {
-        renderChain();
+    // 切换到对应Tab时渲染数据
+    try {
+        if (tabName === 'chain') {
+            if (typeof renderChain === 'function') renderChain();
+        } else if (tabName === 'holding') {
+            var mood = (typeof calculateMood === 'function') ? calculateMood() : null;
+            if (typeof renderHolding === 'function') renderHolding(mood);
+        } else if (tabName === 'radar') {
+            if (typeof renderRadar === 'function') renderRadar();
+        } else if (tabName === 'market') {
+            var mood2 = (typeof calculateMood === 'function') ? calculateMood() : null;
+            if (typeof renderMarket === 'function') renderMarket(mood2);
+        }
+    } catch(e) {
+        console.error('switchTab render error:', e);
     }
 }
 
@@ -4361,39 +4417,7 @@ function getMissingStepsText(missingSteps) {
 }
 
 // 加载三线金叉数据
-async function loadGoldenCrossData() {
-    try {
-        const response = await fetch('三线金叉全市场结果.json');
-        if (response.ok) {
-            const data = await response.json();
-            goldenCrossCache = data;
-            window.__GOLDEN_CROSS_DATA__ = data;
-            // 触发雷达Tab重新渲染
-            renderRadarStocks();
-        }
-    } catch(e) {
-        console.log('三线金叉数据加载失败，使用默认数据');
-    }
-}
 
-// Tab切换时加载数据
-const originalSwitchTab = switchTab;
-switchTab = function(tabName) {
-    originalSwitchTab(tabName);
-    
-    // 切换到雷达Tab时加载数据
-    if (tabName === 'radar') {
-        if (!goldenCrossCache) {
-            loadGoldenCrossData();
-        }
-        renderRadar();
-    }
-    
-    // 切换到决策链路Tab时渲染
-    if (tabName === 'chain') {
-        renderChain();
-    }
-};
 
 // ========== 进攻方向配置 ==========
 const ATTACK_DIRECTIONS = [
@@ -5498,12 +5522,12 @@ function getWatchAction(stock, quote, mood) {
 function renderAll() {
     if (Object.keys(quoteData).length === 0) return;
     
-    let mood;
+    var mood;
     try {
         mood = calculateMood();
     } catch(e) {
         console.error('calculateMood error:', e);
-        return;
+        mood = { stage: 3, score: 50, stageName: '启动', color: '#73d13d', desc: '', suggestedPosition: 50, trafficLight: '🟡', trafficReason: '', trafficDetail: '' };
     }
     
     // 顶部渲染 - 失败不影响其他
